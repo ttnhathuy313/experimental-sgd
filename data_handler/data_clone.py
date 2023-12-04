@@ -22,6 +22,7 @@ def clone_data():
     with zipfile.ZipFile(output, 'r') as zip_ref:
         zip_ref.extractall()
     logger.info('Data is extracted into ./data')
+    os.remove(output)
 
 
 clone_data()
