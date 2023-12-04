@@ -18,7 +18,7 @@ class LossFunction:
         X : numpy.ndarray
             The input data
         y : numpy.ndarray
-            The labels
+            The labels, one-hot encoded
         num_classes : int
             The number of classes of the data
         num_perceptrons : int
@@ -30,9 +30,10 @@ class LossFunction:
         self.num_classes = num_classes
         self.num_perceptrons = num_perceptrons
     
-    def sigmoid(self, x):
+
+    def softmax(self, x):
         """
-        Sigmoid activation function
+        Softmax activation function
 
         Parameters
         ----------
@@ -45,7 +46,7 @@ class LossFunction:
             The output
         """
 
-        return 1 / (1 + np.exp(-x))
+        return np.exp(x) / np.sum(np.exp(x), axis=0)
     
     def loss(self, W):
         """
@@ -61,3 +62,7 @@ class LossFunction:
         float
             The loss
         """
+
+        
+
+        
