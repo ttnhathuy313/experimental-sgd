@@ -23,6 +23,4 @@ def clone_data():
         zip_ref.extractall()
     logger.info('Data is extracted into ./data')
     os.remove(output)
-
-
 clone_data()
