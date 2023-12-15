@@ -1,3 +1,3 @@
-## Hi Tân
+## Usage
 
-Tui đang chuẩn bị viết back prop với cái model
+All notebook file can be uploaded to Google Colab and run.
