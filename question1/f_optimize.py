@@ -6,11 +6,16 @@ from copy import deepcopy
 
 def calculateGrad(x, f, calcHessian=False, diff=1e-5):
     """
+    Calculate gradient of a multivariable function, the function can be scalar-valued or vector-valued.
+    This works well with second order, just use gradient function as the input function. But remember
+    to specify calcHessian to adjust for dimensionality.
+
+    This is inspired by CS231n homework 1, see the link https://cs231n.github.io/
 
     :param x: shape (D)
     :param f: function takes x as input and return value shape (M)
-    :param diff: different before after (differential)
-    :return: gradient of f at x with shape (D)
+    :param diff: different before after (differential), see more below
+    :return: gradient of f at x with shape (M, D)
     """
 
     dimInput = x.shape[0]
@@ -41,10 +46,34 @@ def calculateGrad(x, f, calcHessian=False, diff=1e-5):
 
 
 def sgdUpdate(x, grad, stepSize, config):
+    """
+    Perform an update using sgd/gd rule
+
+    :param x: the initial point shape (D)
+    :param grad: gradient function to calculate, that is we have to call grad(x)
+    :param stepSize: a constant learning rate
+    :param config: This dictionary is left as None but will be used for other optimizers.
+    (We put it as empty to synchronize with the design of other optimizers. So we do not have
+    to go back and delete too much)
+    :return: tuple of size (2,). The first element will be the new_x of shape (D), second element
+    will be the config dictionary.
+    """
+
     return x - stepSize * grad(x), config
 
 
 def momentumUpdate(x, grad, stepSize, config):
+    """
+    Perform an update using momentum rule
+
+    :param x: the initial point shape (D)
+    :param grad: gradient function to calculate, that is we have to call grad(x)
+    :param stepSize: a constant learning rate
+    :param config: Dictionary contains 'momentum' and 'damping coefficient' hyperparameters
+    for momentum optimizer. The values are corresponding to the keys above.
+    :return: tuple of size (2,). The first element will be the new_x of shape (D), second element
+    will be the config dictionary.
+    """
     m = config['momentum']
     beta = config['damping coefficient']
 
@@ -57,6 +86,17 @@ def momentumUpdate(x, grad, stepSize, config):
 
 
 def nesterovUpdate(x, grad, stepSize, config):
+    """
+    Perform an update using Nesterov rule
+
+    :param x: the initial point shape (D)
+    :param grad: gradient function to calculate, that is we have to call grad(x)
+    :param stepSize: a constant learning rate
+    :param config: Dictionary contains 'momentum' and 'damping coefficient' hyperparameters
+    for Nesterov optimizer. The values are corresponding to the keys above.
+    :return: tuple of size (2,). The first element will be the new_x of shape (D), second element
+    will be the config dictionary.
+    """
     m = config['momentum']
     beta = config['damping coefficient']
 
@@ -69,6 +109,18 @@ def nesterovUpdate(x, grad, stepSize, config):
 
 
 def adamUpdate(x, grad, stepSize, config):
+    """
+    Perform an update using Adam rule optimizer
+
+    :param x: the initial point shape (D)
+    :param grad: gradient function to calculate, that is we have to call grad(x)
+    :param stepSize: a constant learning rate
+    :param config: Dictionary contains hyperparameters for Adam optimizer.
+    There will be 'beta1', 'beta2', 'epsilon' are main hyperparameters.
+    The memory will include 'm', 'v' and 't' and all are initialized zeros.
+    :return: tuple of size (2,). The first element will be the new_x of shape (D), second element
+    will be the config dictionary.
+    """
     beta1 = config['beta1']
     beta2 = config['beta2']
     epsilon = config['epsilon']
@@ -96,6 +148,17 @@ def adamUpdate(x, grad, stepSize, config):
 
 
 def back_tracking(f, df, x, p, alpha0, rho, c):
+    """
+    Perform back tracking line search (exact line search method).
+    :param f:
+    :param df:
+    :param x:
+    :param p:
+    :param alpha0:
+    :param rho:
+    :param c:
+    :return:
+    """
     f_value = f(x)
     second_term = c * np.dot(df(x), p)
     alpha = alpha0
@@ -105,6 +168,19 @@ def back_tracking(f, df, x, p, alpha0, rho, c):
 
 
 def f_optimize(f, df, x0, time_limit):
+    """
+    Trying to optimize (minimize) a (multivariable) scalar-valued function in a specific time limit.
+    Currently: using Adam. The function will stop if time limit exceeded or norm of gradient close to zero
+    for a specific threshold.
+
+    :param f: a (multivariable) scalar-valued function that takes in an input of shape (D, ) and
+    return a scalar value shape (1, )
+    :param df: gradient function to calculate, that is we have to call grad(x)
+    :param x0: initial starting point of shape (D, )
+    :param time_limit: time limiting for optimizing the function
+    :return: x solution output of shape (D, ).
+    """
+
     start_time = time.time()
 
     max_iterations = 100000
