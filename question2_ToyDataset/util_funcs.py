@@ -15,11 +15,16 @@ from copy import deepcopy
 # https://en.wikipedia.org/wiki/Stochastic_variance_reduction
 # and https://github.com/kilianFatras/variance_reduced_neural_networks
 
+# Most of the time, N refers to number of samples, usually in a mini-batch. D refers to dimension of feature space.
+
 
 def softmax_stable(Z):
     """
     Compute softmax values for each sets of scores in Z.
-    each row of Z is a set of scores.
+    Each row of Z is a set of scores.
+    This is a numerical stable version of softmax, preventing overflow.
+    :param Z: Input matrix (or can be a row vector) of shape (N, D).  This is sometimes known as 'raw logits'.
+    :return: softmax output of shape (N, D)
     """
     e_Z = np.exp(Z - np.max(Z, axis = 1, keepdims = True))
     A = e_Z / e_Z.sum(axis = 1, keepdims = True)
@@ -28,21 +33,25 @@ def softmax_stable(Z):
 
 def crossentropy_loss(Yhat, y):
     """
-    Yhat: a numpy array of shape (Npoints, nClasses) -- predicted output 
-    y: a numpy array of shape (Npoints) -- ground truth. We don't need to use 
+    Cross entropy loss function
+    :param Yhat: a numpy array of shape (N, nClasses) -- predicted output
+    :param y: a numpy array of shape (N, ) -- ground truth. We don't need to use
     the one-hot vector here since most of the elements are zeros. When programming
     in numpy, we need to use the corresponding indexes only.
+    :return: The cross entropy loss value (taken as the mean of finite sum loss)
     """
     id0 = range(Yhat.shape[0])
     return -np.mean(np.log(Yhat[id0, y]))
 
 
 def mlp_init(d0, d1, d2):
-    """ 
-    Initialize W1, b1, W2, b2 
-    d0: dimension of input data 
-    d1: number of hidden unit 
-    d2: number of output unit = number of classes
+    """
+    Initialize weights and biases of the simple FC Net: W1, b1, W2, b2.
+    :param d0: dimension of input data
+    :param d1: number of hidden unit
+    :param d2: number of output unit = number of classes
+    :return: tuple of shape (4, ). The first element will be weight W1 shape (d0, d1), second element will be bias shape
+    (d1, ). The third element will be weight W2 shape (d1, d2), fourth element will be bias shape (d2, ).
     """
     W1 = 0.01*np.random.randn(d0, d1)
     b1 = np.zeros(d1)
@@ -53,9 +62,9 @@ def mlp_init(d0, d1, d2):
 
 def mlp_predict(X, W1, b1, W2, b2):
     """
-    Suppose that the network has been trained, predict class of new points. 
-    X: data matrix, each ROW is one data point.
-    W1, b1, W2, b2: learned weight matrices and biases 
+    Suppose that the network has been trained, predict class of new points.
+    :param X: data matrix, each ROW is one data point, X has shape (N, d0).
+    :return: class prediction of each samples with shape (N, )
     """
     Z1 = X.dot(W1) + b1    # shape (N, d1)
     A1 = np.maximum(Z1, 0) # shape (N, d1)
@@ -64,7 +73,17 @@ def mlp_predict(X, W1, b1, W2, b2):
 
 
 def mlp_forward(X, W1, b1, W2, b2):
-
+    """
+    Forward pass through the simple FC Net (feed forward process)
+    :param X: data matrix, each ROW is one data point, X has shape (N, d0).
+    :param W1: first weight of the simple FC Net, shape (d0, d1)
+    :param b1: first bias of the simple FC Net, shape (d1, )
+    :param W2: second weight of the simple FC Net, shape (d1, d2)
+    :param b2: second bias of the simple FC Net, shape (d2, )
+    :return: tuple of shape (4, ). The first 3 elements are the cache of the forward pass that will be later used
+    in the backward pass, they are elementary outputs of layers. The last element are outputs of the network after the
+    last layer (this is sometimes known as 'raw output score' or 'raw logits'), this has shape (N, d2).
+    """
     # feedforward 
     Z1 = X.dot(W1) + b1       # shape (N, d1)
     A1 = np.maximum(Z1, 0)    # shape (N, d1)
@@ -74,10 +93,24 @@ def mlp_forward(X, W1, b1, W2, b2):
     return Z1, A1, Z2, Yhat
 
 
-def mlp_backward(X, y, Z1, A1, Yhat):
+def mlp_backward(X, y, W1, b1, W2, b2, Z1, A1, Z2, Yhat):
+    """
+    Backward pass through the simple FC Net (back propagation)
+    :param X: data matrix, each ROW is one data point, X has shape (N, d0).
+    :param y: a numpy array of shape (N, ) -- ground truth
+    :param W1: first weight of the simple FC Net, shape (d0, d1)
+    :param b1: first bias of the simple FC Net, shape (d1, )
+    :param W2: second weight of the simple FC Net, shape (d1, d2)
+    :param b2: second bias of the simple FC Net, shape (d2, )
+    :param Z1: first element of the 3 cache elements mentioned in the forward pass, shape (N, d1)
+    :param A1: second element of the 3 cache elements mentioned in the forward pass, shape (N, d1)
+    :param Z2: third element of the 3 cache elements mentioned in the forward pass, shape (N, d2)
+    :param Yhat: a numpy array of shape (N, d2) -- predicted output
+    :return: tuple of shape (4, ). Gradient of weights and biases of the network: W1, b1, W2, b2 respectively.
+    """
     # back propagation
     id0 = range(Yhat.shape[0])
-    Yhat[id0, y] -=1 
+    Yhat[id0, y] -= 1
     E2 = Yhat / X.shape[0]                # shape (N, d2)
     dW2 = np.dot(A1.T, E2)     # shape (d1, d2)
     db2 = np.sum(E2, axis = 0) # shape (d2,)
@@ -90,6 +123,19 @@ def mlp_backward(X, y, Z1, A1, Yhat):
 
 
 def mlp_fit(X, y, W1, b1, W2, b2, eta, batchSize = 1, nIter = 10000):
+    """
+    Fit (Train) simple FC Net on a dataset
+    :param X: data matrix, each ROW is one data point, X has shape (N, d0).
+    :param y: a numpy array of shape (N, ) -- ground truth
+    :param W1: first weight of the simple FC Net, shape (d0, d1)
+    :param b1: first bias of the simple FC Net, shape (d1, )
+    :param W2: second weight of the simple FC Net, shape (d1, d2)
+    :param b2: second bias of the simple FC Net, shape (d2, )
+    :param eta: learning rate (step size), a constant number (scalar)
+    :param batchSize: number of samples in a mini-batch
+    :param nIter: number of update iteration
+    :return: tuple of shape (5, ).
+    """
     loss_hist = []
     
     for i in range(nIter):
@@ -118,6 +164,18 @@ def mlp_fit(X, y, W1, b1, W2, b2, eta, batchSize = 1, nIter = 10000):
 
 
 def mlp_gradTest(X, y, W1, b1, W2, b2, batchSize = 1, nIter = 10000):
+    """
+
+    :param X:
+    :param y:
+    :param W1:
+    :param b1:
+    :param W2:
+    :param b2:
+    :param batchSize:
+    :param nIter:
+    :return:
+    """
     
     gradHistory = {
         'dW1': [],
@@ -152,6 +210,18 @@ def mlp_gradTest(X, y, W1, b1, W2, b2, batchSize = 1, nIter = 10000):
 
 
 def mlpSAGA(X, y, W1, b1, W2, b2, eta, nIter = 10000):
+    """
+
+    :param X:
+    :param y:
+    :param W1:
+    :param b1:
+    :param W2:
+    :param b2:
+    :param eta:
+    :param nIter:
+    :return:
+    """
     
     loss_hist = []
     cache = createCacheSAGA(X, y, W1, b1, W2, b2)
@@ -188,6 +258,16 @@ def mlpSAGA(X, y, W1, b1, W2, b2, eta, nIter = 10000):
 
 
 def createCacheSAGA(X, y, W1, b1, W2, b2):
+    """
+
+    :param X:
+    :param y:
+    :param W1:
+    :param b1:
+    :param W2:
+    :param b2:
+    :return:
+    """
     
     cache = {
         'W1': np.zeros((X.shape[0], W1.shape[0], W1.shape[1])),
@@ -215,6 +295,12 @@ def createCacheSAGA(X, y, W1, b1, W2, b2):
 
 
 def relativeError(a, b):
+    """
+
+    :param a:
+    :param b:
+    :return:
+    """
     return np.abs(a - b) / np.maximum(np.abs(a), np.abs(b))
 
 
